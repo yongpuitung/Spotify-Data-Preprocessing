@@ -1,2 +1,8 @@
 # Spotify-Data-Preprocessing
-This project utilizes R to preprocess Spotify's "Unpopular Songs" and "Genre of Artists" datasets from Kaggle. Following tidy data principles, it handles duplicates, transforms variables, scans for outliers, and normalizes data. The resulting clean dataset is ready for statistical analysis, ensuring accurate and ethical data practices.
+In this project, I utilize R to preprocess Spotify's "Unpopular Songs" and "Genre of Artists" datasets from Kaggle. Following Hadley Wickham’s “Tidy Data” principles, I have cleaned up all types of messy data to ensure the resulting clean dataset is ready for statistical analysis, ensuring accurate and ethical data practices.
+
+Check out the detailed processes and transformations performed in the code. 
+
+You can also download the datasets from Kaggle links below:
+https://www.kaggle.com/datasets/estienneggx/spotify-unpopular-songs?select=unpopular_songs.csv
+https://www.kaggle.com/datasets/estienneggx/spotify-unpopular-songs?select=z_genre_of_artists.csv

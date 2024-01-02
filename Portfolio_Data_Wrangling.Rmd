@@ -1,0 +1,409 @@
+---
+title: "Data Preprocessing Project"
+author: "Yong Pui Tung"
+date: "2 Jan 2024"
+output: html_document
+---
+## **Setup**
+```{r, results="hide", message = FALSE}
+library(readr) 
+library(dplyr)
+library(magrittr)
+library(outliers)
+library(MVN)
+library(here)
+library(tidyr)
+library(ggplot2)
+library(kableExtra)
+library(stringr)
+library(splitstackshape)
+library(lubridate)
+library(editrules)
+library(forecast)
+library(ggplot2)
+```
+
+## **Executive Summary**
+
+The five main processes of data preprocessing are "get, understand, tidy & manipulate, scan, and transform". All procedures and the collection of tasks required to clean up all types of messy data have been accomplished.
+
+The two data sets are imported into R using the `readr` package after being downloaded in csv format from Kaggle. After that, we remove the duplicate value that is discovered in the data set and combine the information using left join function by the shared variable between the two data sets. To understand the variables in the data set and the significance of each value, the dimensions and structure of the combined data "songs" are evaluated. Following Hadley Wickham’s “Tidy Data” principles (Wickham and Grolemund (2016)), brackets in the values of genre column are removed, and each value has been separated into its own cell. When dealing with a huge data frame, it is often preferred to focus solely on a few key variables. As a result, a new data frame named `songs_selected` is created and the data is organized based on the popularity and track name of the songs. In order to make the time data more understandable after the data has been cleaned up, we have created a new variable (`duration_min`) by mutating the original variable (`duration_ms`). 
+
+For missing values, special values, and obvious errors, we have gone through the scanning procedure. The NA value is successfully translated into "uncategorized" and no special value is discovered. We also use established rules to search for glaring mistakes. The observer outlier in the data set has been identified with the use of boxplot and z-score. We normalize the data at the last stage by using the appropriate transformations (logarithm and square root).
+<br>
+<br>
+
+\newpage
+
+## **Data**
+The first data set (`unpopular_songs.csv`), which contains a single sheet with the label "unpopular songs", displays over 10,000 unpopular songs discovered on the music streaming service Spotify. The second data set (`z_genre_of_artists.csv`) contains a single sheet with the name "z genre of artists" that includes information of more than 1,700 artists with the associated genres categorized by Spotify. One song can belong to multiple categories. Both data sets' updates is completed since August 2022, with popularity ratings ranging from 0 to 100 based on Spotify data. Notably, the dataset focuses solely on songs ranging from 0 to 18, considered as unpopular by Spotify's rating system.
+
+Both data sets are downloaded from Kaggle at
+[link1](https://www.kaggle.com/datasets/estienneggx/spotify-unpopular-songs?select=unpopular_songs.csv) and
+[link2](https://www.kaggle.com/datasets/estienneggx/spotify-unpopular-songs?select=z_genre_of_artists.csv)
+
+### Import Data
+The `readr` package is needed to import and read the data from the csv files that contain the data sets. For `unpopular_songs.csv` and `z_genre_of_artists.csv`, we load the data into the data frames `unpopular_songs` and `genre` respectively. 
+
+```{r, results="hide", message = FALSE}
+# Import the two csv files and save them in separate data frames
+unpopular_songs <- read_csv("unpopular_songs.csv")
+genre <- read_csv("z_genre_of_artists.csv")
+```
+
+### Viewing the data sets
+We begin by inspecting the initial 6 rows of both datasets. Utilizing the `head()` function, we examine the first 6 rows of each dataset.
+```{r}
+# Show the first six rows of "unpopular_songs" dataframe
+head(unpopular_songs)
+```
+```{r}
+# Show the first six rows of "genre" data frame
+head(genre)
+```
+### Number of observations
+```{r}
+# Check the number of observations in "unpopular_songs"
+unpopular_songs %>% count()
+```
+```{r}
+# Check the number of observations in "genre"
+genre %>% count()
+```
+The `count()` results reveal that the variables "unpopular songs" and "genre" have 10,877 and 1,736 observations respectively. In order to identify and remove duplicated observations, we use `unique ()` or `distinct()` function to check the distinct number of observations. After eliminating duplicated observations, the number of unique observations are calculated by `count()` function.
+
+### Identify Duplicated Observation
+```{r}
+# Check the distinct number of observations in "unpopular_songs"
+unpopular_songs %>% unique() %>% count()
+```
+```{r}
+# Check the distinct number of observations in "genre"
+genre %>% distinct() %>% count()
+```
+As the row number reduces from 1,736 to 1,476 after using `distinct()` and `count()` functions, the result reveals that "genre" data frame contains 1736 - 1476 = 260 duplicated rows. 
+
+### Remove Duplicated Rows
+Therefore, we use `distinct()` function to remove duplicated rows and then save it as a new data frame called `new_genre.`
+```{r}
+new_genre <- genre %>% distinct()
+```
+
+### Merge Data
+The left_join function from the `dplyr` package is used to merge two datasets (unpopular_songs and new_genre) based on the common variables "track_artist" in the first dataset and "artist_name" in the second dataset. The left join ensures that all rows from the unpopular_songs dataset are retained, and matching rows from the new_genre dataset are added, resulting in a combined dataset where information from both datasets is merged based on the specified variables. A new data frame named "songs" is created.
+```{r}
+songs <- unpopular_songs %>% left_join(new_genre, by=c("track_artist"="artist_name"))
+```
+<br>
+<br>
+
+\newpage
+## **Understand** 
+
+### Data Strucuture and Variable Type
+
+In this part, we will inspect the data structure and variable types. Firstly, we check the dimensions of the data frame using `dim()` function. 
+```{r}
+# Checking the dimensions of songs
+dim(songs)
+```
+The output "10887 19" reveals that the data frame is a 10,887 by 19 data frame. It contains 10,887 rows and 19 columns. 
+
+Then we check variable types in the combined data set "songs" using `str()` function. 
+```{r}
+# Checking the structure of the data
+str(songs)
+```
+
+### Data Conversion
+Most variables are numeric (e.g. valence, tempo, duration ms, etc). They stand for the music elements of the songs. There are units for some variables, including dB, BPM, and milliseconds. "Explicit" is a unique variable having a logic-based structure since it is captured from the original data as TRUE or FALSE. The remaining parameters (track name, track_artist, track_id, artist_id, and genre) take the data type of character.
+
+Next, we will apply data type conversion. Popularity in this data set signifies the ranking of songs, with 0 denoting the lowest rank and 18 the highest. Therefore, we change the data type of "popularity" from numeric to ordered factor using factor() function.
+```{r}
+# Converting the data type to factor
+songs$popularity <- factor(songs$popularity,
+                           levels=c("0", "1", "2", "3", "4", "5", "6", "7", 
+                                       "8", "9", "10", "11", "12", "13", "14", 
+                                       "15", "16", "17", "18"), 
+                           ordered = TRUE)
+```
+
+We then verify whether the transformation is successful or not using `class()` function. A successful transformation is indicated by the function returning "ordered" and "factor" as the data type.
+```{r}
+class(songs$popularity)
+```
+Furthermore, we transform "mode" from numerical variable to factor. Observations in the mode column are represented by number 0 and 1. We label 0 as "major" and 1 as "minor" to avoid confusion and for easier understanding.
+```{r}
+songs$mode <- factor(songs$mode,
+                     levels=c("0","1"),
+                     labels=c("Major","Minor"))
+```
+```{r}
+# Check the factor's level
+levels(songs$mode)
+```
+
+### Data structure
+Finally, we verify the entire data set's structure once again using str() function.
+```{r}
+# Verify the whole data structure again
+str(songs)
+```
+<br>
+<br>
+
+\newpage
+##	**Tidy & Manipulate Data I **
+
+### Tidy Data Principles
+
+According to Wickham and Grolemund (2016), there are three interrelated rules which make a data set tidy.
+
+1. Each variable must have its own column.
+2. Each observation must have its own row.
+3. Each value must have its own cell.
+
+For "songs" data set, it obeys the first and second rules as each variable forms its own column and each track forms its own row. However, the order of columns is not very comprehensive as the column of track name is positioned after most variables, such as `duration_ms`, `popularity`, etc. This will be tidied up at later stage.
+
+Nonetheless, it does not obey the third rule as each value does not have its own cell when we inspect the values under `genre` column. In order to ensure a consistent form that matches the semantics of the data set with the way it is stored, we need to reshape and tidy the data using various functions.
+
+### Tidying "genre" column
+
+The observations must be cleaned up by removing any extra symbols or brackets, and the value order must be rearranged to ensure that each cell has just one value. First, we use the function `str_sub` to eliminate any undesired [ ] from each value in the genre column.
+
+```{r, results="hide"}
+songs$genre <- str_sub(songs$genre, start=2L, end=nchar(songs$genre)-1L)
+```
+
+After that, each value is split into its own cell and converted to long format using the `cSpilt` function. It is converted to long format as we follow Tidy Data Principle 2 that each observation must have its own row. 
+
+```{r, results="hide"}
+songs_2 <- cSplit(songs, "genre", sep=",", direction="long")
+```
+
+To eliminate the unwanted ' ' from the value, `str_sub` function is applied.
+
+```{r, results="hide"}
+songs_2$genre <- str_sub(songs_2$genre, start=2L, end=nchar(songs_2$genre)-1L)
+```
+
+### Using select() function
+When working with a large data frame, often we want to only assess specific variables. The `select()` function allows us to select variables. As `dplyr` functions will not modify inputs, we use the assignment operator to save the result as a new data set called `songs_selected`.
+
+```{r}
+# Select columns by name using the pipe operator and save it in a new data set
+songs_selected <- songs_2 %>% select(popularity, track_name, track_artist, mode, duration_ms, genre)
+```
+
+### Using arrange() function
+We then apply `arrange()` function to order the data set by popularity and track name in ascending order.
+```{r}
+# Order the data set according to two variables
+songs_selected %<>% arrange(popularity, track_name) 
+```
+
+### Using filter() function
+We filter out songs with popularity equal to 0 and compile them into a new data frame called `unpopular_genre` to identify the most unpopular songs within their respective genres. Some songs are not categorized, which contain the value NA. We use `drop_na()` to drop any null values.
+```{r}
+# Select songs with 0 popularity, then group them by genre
+unpopular_genre <- songs_selected %>% filter(popularity == "0") %>% group_by(genre) %>% 
+  summarise(number_of_most_unpopular_songs = n())
+
+# Arrange them by descending order
+unpopular_genre %>% arrange(desc(number_of_most_unpopular_songs)) %>% drop_na()
+```
+\newpage
+## **Tidy & Manipulate Data II** 
+
+After tidying the data, we would like to mutate two new variables from the existing variable duration_ms for easier understanding of the time data. Currently the duration is in millisecond, but we would like to change the unit to second and minute. Here we will use `seconds_to_period()` function from `lubridate` package to handle time data. 
+
+As the original data set provides the time data in millisecond, we will first divide duration_ms by 1000 first before applying `seconds_to_period()` function.
+
+### Using seconds_to_period() function
+```{r}
+# Use seconds_to_period function to transform duration_ms
+songlength <- seconds_to_period(songs_selected$duration_ms/1000)
+
+# Checking if the transformation is successful
+head(songlength)
+```
+
+```{r}
+# Check the class of songlength
+class(songlength)
+```
+
+### Using mutate() function
+We add one new variable using `mutate()` function from `dplyr` package.
+```{r}
+# Create new variables "duration_min"
+# Then drop the existing variable "duration_ms"
+songs_selected %<>% 
+  mutate(songs_selected, duration_min = round(songlength)) %>%
+  select (-duration_ms)
+```
+
+Then we check if the new variable has been successfully added to the data frame.
+```{r}
+# Checking the class of songlength
+glimpse(songs_selected)
+```
+
+<br>
+<br>
+
+\newpage
+##	**Scan I **
+In this part, we will scan the data for missing values, special values, and obvious errors. Firstly, we find if there is any missing values.
+
+### Scanning for Missing Values
+As we read the data from two csv files, any missing value will be represented as NA for integer, < NA > for character variable. To identify missing values in the data frame, we can use `is.na()` function coupled with `colSums()` function to find the total missing values in each column in our data frame.
+```{r}
+# Identify total number of NAs in each column
+colSums(is.na(songs_selected))
+```
+
+We found that column "genre" has 951 NA values. As it is not numeric, we cannot recode the missing value using normal subsetting and assignment operations. The best way is to use `replace_na()` function from `tidyr` package to replace NA values. As NA means that the song is not categorized, we can replace NAs with character "uncategorized" for a better understanding.
+```{r}
+# Replace NA values in "genre"
+songs_selected$genre <- replace_na(songs_selected$genre, "uncategorized")
+
+# Check total number of NAs in each column again to confirm there is no missing value in the data frame
+colSums(is.na(songs_selected))
+```
+
+### Scanning for Special Values
+
+After dealing with missing values, we will check if there is any special value, i.e. -Inf, Inf and NaN. We can use `is.finite`, `is.infinite`, or `is.nan` functions to identify the special values in a data set. As we are checking the entire data frame, we need to use apply family functions. We use `sapply` function here. It can be applied to a list. As data frames possess the characteristics of both lists and matrices, `sapply` can be applied to data frames.
+
+We create a new function to check for the sum of infinite or NaN or NA values for numerical column, and the sum of NA values for other columns. We write the function inside `sapply()` and calculate the total missing values for each column.
+```{r}
+# Check every numerical column whether they have infinite or NaN or NA values using a function
+sapply(songs_selected, function(x) {
+  if(is.numeric(x)) {sum(is.infinite(x) | is.nan(x) | is.na(x))} 
+  else {sum(is.na(x))}
+    })
+```
+From the result, there is no missing value or special value.
+
+### Scanning for Obvious Error
+
+Next, we will check if there is any obvious inconsistency that may not correspond to a real-world situation. For example, a song duration can not be negative. 
+
+We will define a restriction on the duration_min variable using `editset` functions from `editrules` package. 
+```{r}
+(Rule1 <- editset("duration_min > 0"))
+```
+The `editset` function parses the textual rules and stores them in an editset object. The data set can be checked against these rules using the violatedEdits function. If there is data which violates the rules, it will return a logical array of "TRUE". Here we will check the total sum.
+
+```{r}
+violatedEdits(Rule1, songs_selected) %>% sum()
+```
+The result "0" means that there is no data violating the rule, hence returning all "FALSE" and therefore no "TRUE" is returned.
+
+<br>
+<br>
+
+\newpage
+
+##	**Scan II**
+
+As missing values, special values, and obvious errors have been defined and managed, we will now scan for outliers.
+
+### Using boxplot() function
+
+According to Tukey’s method of outlier detection, outliers are the values in the data set that are out of the outlier fences, which is a pair of limitations calculated in between −1.5×IQR to 1.5×IQR range of the boxplot.
+
+Given that, we begin with using `boxplot()` function to get the boxplot of the duration_min variable, which has previously been applied with `period_to_seconds()` function to approximately convert the variable into seconds.
+
+```{r}
+songs_selected$duration_min %>% period_to_seconds() %>% boxplot(main="Boxplot of Songs' Duration", ylab="Duration in seconds", col = "grey")
+```
+According to the Tukey’s method, the duration variable seems to have many outliers.
+
+### Using z-score
+
+In order to find how many outliers there are, we will be looking at the z-score using `score()` function from outliers package. First, we will have to ensure if our distribution is approximately normal. For this, we apply `hist()` function to see the histogram.
+
+```{r}
+songs_selected$duration_min %>% period_to_seconds() %>% hist(main="Histogram of Songs' Duration", xlab="Duration in seconds", breaks=100, col="skyblue")
+```
+
+The histogram is right skewed due to obvious outliers longer than 1000 seconds.
+
+We now calculate z-score for our data using `score()` function. 
+
+```{r}
+z.scores <- songs_selected$duration_min %>% period_to_seconds() %>% scores(type = "z")
+z.scores %>% summary()
+```
+
+Using summary() function, we find that the mean is close to zero, indicating that the dataset has a relatively balanced distribution around the mean. However, the presence of a very large maximum value (28.46304) suggests the presence of potential outliers that significantly affect the overall range of the data.
+
+Lastly, we apply `which()` function to see the locations of absolute z-score values that are greater than three and count how many they are using length() function. A z-score greater than three (in absolute value) is often considered an indicator of an outlier. 
+
+```{r}
+which(abs(z.scores) >3 )
+length (which(abs(z.scores) >3 ))
+```
+
+There are 82 outliers in the dataset.
+
+<br>
+<br>
+
+\newpage
+##	**Transform **
+
+From the histogram we achieved previously, we can also apply data transformation using mathematical operations to adjust the illustration of the distribution.
+
+### Using sqrt() and log10() functions
+
+Because of the right skewness, we apply `sqrt()` function that helps reducing right skewness or `log10()` function to compresses high values and spreads low values by expressing the values as orders of magnitude (Box, George EP, and David R Cox., 1964)
+
+```{r}
+songs_selected$duration_min %>% period_to_seconds() %>% sqrt() %>%
+   hist(main="Histogram of Sqrt Songs' Duration", xlab="Duration in seconds", breaks=100, col="skyblue")
+```
+
+```{r}
+songs_selected$duration_min %>% period_to_seconds() %>% log10() %>%
+   hist(main="Histogram of Log10 Songs' Duration", xlab="Duration in seconds", breaks=100, col="skyblue")
+```
+
+Alternatively, we can also apply BoxCox transformation using `BoxCox()` function from `forecast` package.
+
+```{r}
+Boxcox_duration <- songs_selected$duration_min %>% 
+  period_to_seconds() %>% 
+  BoxCox(lambda = "auto")
+
+head(Boxcox_duration, n = 30)
+```
+
+```{r}
+# Showing the optimum lambda value
+attr(Boxcox_duration,"lambda")
+```
+
+The values returned from the function are transformed with the best parameter as we set lambda = "auto" and the optimum lambda value is found as 0.06641402. We can check the distribution of transformed values using `hist()` function.
+
+```{r}
+# Histogram of Boxcox
+hist(Boxcox_duration, col="skyblue")
+```
+<br>
+In conclusion, through several data preprocessing techniques, including data cleaning, transformation and addressing outliers, we have successfully created a tidy dataset. The application of the Box-Cox transformation has enhanced the normality of our variables, ensuring a more robust and standardized representation. This clean dataset stands as a reliable foundation, ready for seamless integration into further analyses and statistical modeling. Its adherence to best practices and tidy data principles positions it as a valuable resource for deriving meaningful insights and drawing accurate conclusions in future endeavors.
+
+<br>
+
+\newpage
+## **References **
+
+Box, George EP, and David R Cox. 1964. “An Analysis of Transformations.” Journal of the Royal Statistical Society. Series B (Methodological), 211–52.
+
+Wickham, Hadley, and Garrett Grolemund. 2016. R for Data Science: Import, Tidy, Transform, Visualize, and Model Data. " O’Reilly Media, Inc.".
+
+EstienneGGX, dambs0ap, &amp; Nikita Sharma. (2022, September 4). Spotify unpopular songs (unpopular_songs.csv). Kaggle. Retrieved October 7, 2022, from https://www.kaggle.com/datasets/estienneggx/spotify-unpopular-songs?select=unpopular_songs.csv 
+
+EstienneGGX, dambs0ap, &amp; Nikita Sharma. (2022, September 4). Spotify unpopular songs (z_genre_of_artists.csv). Kaggle. Retrieved October 7, 2022, from https://www.kaggle.com/datasets/estienneggx/spotify-unpopular-songs?select=z_genre_of_artists.csv

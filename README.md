@@ -4,5 +4,7 @@ In this project, I utilize R to preprocess Spotify's "Unpopular Songs" and "Genr
 Check out the detailed processes and transformations performed in the code. 
 
 You can also download the datasets from Kaggle links below:
+
 https://www.kaggle.com/datasets/estienneggx/spotify-unpopular-songs?select=unpopular_songs.csv
+
 https://www.kaggle.com/datasets/estienneggx/spotify-unpopular-songs?select=z_genre_of_artists.csv

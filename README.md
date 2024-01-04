@@ -17,3 +17,5 @@ You can download the datasets from Kaggle.
 This project is derived from my personal RMIT Master of Analytics assignment in the “Data Wrangling” course (2022). It has been slightly modified and refined to showcase my data preprocessing techniques using R.
 
 Feel free to read the step-by-step explanation in my [blog](https://medium.com/@cserinhk/my-first-data-wrangling-project-using-r-52af4c2e1885).
+
+![Screenshot of medium blog](/img/medium.png)

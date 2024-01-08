@@ -14,7 +14,19 @@ You can download the datasets from Kaggle.
 
 ![Screenshot of z_genre_of_artists csv](/img/z_genre_of_artists.png)
 
-This project is derived from my personal RMIT Master of Analytics assignment in the “Data Wrangling” course (2022). It has been slightly modified and refined to showcase my data preprocessing techniques using R.
+In the project, I applied various data cleaning techniques, including:
+- Removing Duplicates
+- Verifying Data Structures
+- Ensuring
+  - Every column is a variable.
+  - Every row is an observation.
+  - Every cell is a single value.
+- Scanning for Missing Values
+- Scanning for Special Values
+- Scanning for Errors
+- Scanning for Outliers
+
+This project is derived from my own RMIT Master of Analytics assignment in the “Data Wrangling” course (2022). It has been slightly modified and refined to showcase my data preprocessing techniques using R.
 
 Feel free to read the step-by-step explanation in my [blog](https://medium.com/@cserinhk/my-first-data-wrangling-project-using-r-52af4c2e1885).
 
